@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attack Surface Dashboard</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+}
+
+header {
+    padding: 15px;
+    text-align: center;
+    background: #161b22;
+    font-size: 22px;
+    font-weight: bold;
+    box-shadow: 0 0 15px rgba(88,166,255,0.5);
+}
+
+.container {
+    padding: 20px;
+}
+
+.input-section {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+input {
+    flex: 1;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    background: #161b22;
+    color: white;
+}
+
+button {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    background: #238636;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(35,134,54,0.6);
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+}
+
+.card {
+    background: #161b22;
+    padding: 15px;
+    border-radius: 12px;
+}
+
+.results {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.result-item {
+    padding: 8px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    background: #0d1117;
+    transition: 0.2s;
+}
+
+.result-item:hover {
+    transform: scale(1.02);
+}
+
+.ai-summary {
+    line-height: 1.6;
+}
+
+.loader {
+    display: none;
+    text-align: center;
+}
+
+.spinner {
+    width: 30px;
+    height: 30px;
+    border: 4px solid #30363d;
+    border-top: 4px solid #58a6ff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: auto;
+}
+
+@keyframes spin {
+    100% { transform: rotate(360deg); }
+}
+</style>
+</head>
+
+<body>
+
+<header>⚡ Attack Surface Management Dashboard</header>
+
+<div class="container">
+
+<div class="input-section">
+<input type="text" id="targetInput" placeholder="Enter domain (e.g., scanme.nmap.org)">
+<button onclick="startScan()">Scan</button>
+</div>
+
+<div class="loader" id="loader">
+<div class="spinner"></div>
+<p>Scanning...</p>
+</div>
+
+<div class="grid">
+
+<div class="card">
+<h3>Scan Results</h3>
+<div class="results" id="results"></div>
+</div>
+
+<div class="card">
+<h3>AI Summary</h3>
+<div class="ai-summary" id="summary">No analysis yet</div>
+</div>
+
+</div>
+
+</div>
+
+<script>
+async function startScan() {
+
+    const target = document.getElementById('targetInput').value;
+    const loader = document.getElementById('loader');
+    const resultsDiv = document.getElementById('results');
+    const summaryDiv = document.getElementById('summary');
+
+    if (!target) {
+        alert("Enter target!");
+        return;
+    }
+
+    resultsDiv.innerHTML = "";
+    summaryDiv.innerHTML = "Analyzing...";
+    loader.style.display = "block";
+
+    try {
+        const res = await fetch(`http://127.0.0.1:8000/scan?target=${target}`);
+        const data = await res.json();
+
+        loader.style.display = "none";
+
+        if (data.results.length === 0) {
+            resultsDiv.innerHTML = "<p>No vulnerabilities found</p>";
+        } else {
+            data.results.forEach(item => {
+
+                const div = document.createElement("div");
+                div.className = "result-item";
+
+                let severity = "low";
+
+                if (item.info && item.info.toLowerCase().includes("open port"))
+                    severity = "medium";
+
+                if (item.info && item.info.toLowerCase().includes("vulnerability"))
+                    severity = "high";
+
+                if (severity === "high") div.style.borderLeft = "4px solid red";
+                else if (severity === "medium") div.style.borderLeft = "4px solid orange";
+                else div.style.borderLeft = "4px solid green";
+
+                div.innerText = `${item.module} → ${item.info}`;
+                resultsDiv.appendChild(div);
+            });
+        }
+
+        summaryDiv.innerHTML = `
+            ${data.ai_summary}
+            <br><br>
+            <b>Total Issues:</b> ${data.total_issues}
+        `;
+
+    } catch (err) {
+        loader.style.display = "none";
+        resultsDiv.innerHTML = "⚠️ Backend error";
+        console.log(err);
+    }
+}
+</script>
+
+</body>
+</html>
